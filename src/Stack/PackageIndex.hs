@@ -128,7 +128,7 @@ populateCache menv index = do
     goE blockNo m hm e =
         case Tar.entryContent e of
             Tar.NormalFile lbs size ->
-                case parseNameVersion $ Tar.entryPath e of
+                case parseNameVersionSuffix $ Tar.entryPath e of
                     Just (ident, ".cabal") -> addCabal lbs ident size
                     Just (ident, ".json") -> (addJSON id ident lbs, hm)
                     _ ->
@@ -194,18 +194,16 @@ populateCache menv index = do
         p <- parsePackageName p'
         (v', t5) <- breakSlash t3
         v <- parseVersion v'
+        return (p', p, v, t5)
+
+    parseNameVersionSuffix t1 = do
+        (p', p, v, t5) <- parseNameVersion t1
         let (t6, suffix) = T.break (== '.') t5
-        if t6 == p'
-            then return (PackageIdentifier p v, suffix)
-            else Nothing
+        guard $ t6 == p'
+        return (PackageIdentifier p v, suffix)
 
     parsePackageJSON t1 = do
-        (p', t3) <- breakSlash
-                  $ T.map (\c -> if c == '\\' then '/' else c)
-                  $ T.pack t1
-        p <- parsePackageName p'
-        (v', t5) <- breakSlash t3
-        v <- parseVersion v'
+        (_, p, v, t5) <- parseNameVersion t1
         guard $ t5 == "package.json"
         return $ PackageIdentifier p v
 
